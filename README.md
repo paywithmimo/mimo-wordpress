@@ -9,4 +9,4 @@
 - [PHP](http://www.php.net/)
 - [CURL PHP](http://php.net/manual/en/book.curl.php)
 - [JSON PHP](http://php.net/manual/en/book.json.php)
-- [WORDPRESS 3.3 or Higher]
+- [WORDPRESS 3.3 or Higher] (http://wordpress.org/download/)
