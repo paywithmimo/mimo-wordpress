@@ -69,12 +69,6 @@ class MimoRestClient
      * @var string URL to return the user to after the authentication request
      */
     private $redirectUri;
-
-    /**
-     * @var string Transaction mode. Can be 'live' or 'test'
-     */
-    private $mode;
-    
     /**
      * @var string error messages returned from Mimo
      */
@@ -105,7 +99,7 @@ class MimoRestClient
      * 
      * @return string URL
      */
-    public function getAuthUrl()
+    public function getAuthUrl($requesturi='')
     {
         $params = array(
             'client_id' => $this->apiKey,
@@ -113,8 +107,11 @@ class MimoRestClient
             'response_type' => 'code'
         );
         // Only append a redirectURI if one was explicitly specified
-        if ($this->redirectUri) {
-            $params['redirect_uri'] = $this->redirectUri;
+        if($requesturi!=''){
+        	$params['url'] = $requesturi;
+        }
+        else if ($this->redirectUri) {
+            $params['url'] = $this->redirectUri;
         }
         $url =  $this->apiServerUrl.'/authenticate?' . http_build_query($params);
         return $url;
@@ -191,6 +188,59 @@ class MimoRestClient
     	$url = $this->apiServerUrlUser.'transfers';  
     	$data['notes'] = $params['notes'];
 		$data['amount'] = $params['amount'];
+    	$response = $this->post($url, $data,true);
+    	if (isset($response['error'])) {
+    		$this->errorMessage = $response['error_description'];
+    		return false;
+    	}
+    	return $response;
+    }
+    /**
+     * Refund Money for the given transaction ID
+     *
+     * @param float amount to which information is pulled
+     * @return array Transaction information
+     */
+    public function refund($amount = false,$transaction_id="",$notes='')
+    {
+    	// Verify required paramteres
+    	if (!$amount) {
+    		return $this->setError('Please enter amount.');
+    	}
+    	if (!$transaction_id) {
+    		return $this->setError('Please enter Transaction ID.');
+    	}
+    	$params = array('notes'=>$notes,
+    			'amount' => $amount,
+    			'transaction_id'=>$transaction_id
+    
+    	);
+    	$url = $this->apiServerUrlUser.'refunds';
+    	$data['notes'] = $params['notes'];
+    	$data['amount'] = $params['amount'];
+    	$data['transaction_id'] = $params['transaction_id'];
+    	$response = $this->post($url, $data,true);
+    	if (isset($response['error'])) {
+    		$this->errorMessage = $response['error_description'];
+    		return false;
+    	}
+    	return $response;
+    }
+    /**
+     * Void the transaction using transaction ID
+     *
+     * @param int transaction is  to which information is pulled
+     * @return string Transaction information
+     */
+    public function void($transaction_id="")
+    {
+    	// Verify required paramteres
+    	if (!$transaction_id) {
+    		return $this->setError('Please enter Transaction ID.');
+    	}
+    	$params = array('transaction_id'=>$transaction_id 	);
+    	$url = $this->apiServerUrlUser.'transfers/void';
+    	$data['transaction_id'] = $params['transaction_id'];
     	$response = $this->post($url, $data,true);
     	if (isset($response['error'])) {
     		$this->errorMessage = $response['error_description'];
@@ -313,10 +363,12 @@ class MimoRestClient
         curl_setopt($ch, CURLOPT_CAINFO, $ca . '/cacert.pem'); // Set the location of the CA-bundle
         // Initiate request
         $rawData = curl_exec($ch);
+     
         // If HTTP response wasn't 200,
         // log it as an error!
          $code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        if ($code !== 200 ) {
+         
+        if ($code !== 200 && $code!==201 ) {
         	 $err =curl_error($ch);
             return array(
                 'Success' => false,

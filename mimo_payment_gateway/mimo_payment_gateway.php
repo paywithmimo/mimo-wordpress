@@ -35,14 +35,15 @@ function mimo_user_search($atts,$content=null)
 {   
 	
 	//extract( shortcode_atts( array ( 'userfield' => '','datastring' => ''), $atts ) );
-	require "lib/MimoRestClient.php";
-	require "lib/keys.php";
+	require_once "lib/MimoRestClient.php";
+	require_once  "lib/keys.php";
 	
 	// Instantiate a new Mimo REST Client	
 	$Mimo = new MimoRestClient($apiKey, $apiSecret, $redirectUri); 	
 	if(!isset($_GET['code']) && !isset($_GET['error'])) { 
 		//To fetch authurl and code
-		$authUrl = $Mimo->getAuthUrl();  
+		$mi_oauth_url = get_option('mi_oauth_url');
+		$authUrl = $Mimo->getAuthUrl($mi_oauth_url);  
 		echo "<a href='$authUrl' class='auth_btn'>Get Oauth</a>";
 	}
 	//if error generated from Mimo
@@ -146,14 +147,15 @@ add_shortcode('mimo-user','mimo_user_search');
 //Shortcode for Transaction
 function mimo_money_transfer($atts,$content=null)
 { 
-	require "lib/MimoRestClient.php";
-	require "lib/keys.php";
+	require_once "lib/MimoRestClient.php";
+	require_once "lib/keys.php";
 
 	// Instantiate a new Mimo REST Client	
 	$Mimo = new MimoRestClient($apiKey, $apiSecret, $oauth_uri); 	
 	if(!isset($_GET['code']) && !isset($_GET['error'])) { 
 		//To fetch authurl and code
-		$authUrl = $Mimo->getAuthUrl();  
+		$mi_oauth_url_mt = get_option('mi_oauth_url_mt');
+		$authUrl = $Mimo->getAuthUrl($mi_oauth_url_mt);  
 		echo "<a href='$authUrl' class='auth_btn'>Get Oauth</a>";
 	}
 	if(isset($_GET['error'])) {
@@ -169,7 +171,7 @@ function mimo_money_transfer($atts,$content=null)
 			if(!isset($_SESSION))
 			$_SESSION['token'] = $token;
 		}	
-	// To get user account basic information
+	// html for requesting money transfer
     $html='';
     $html .='<form name="userinfo_form" method="post" action="" >
     <h1>Money Transfer</h1>
@@ -186,7 +188,7 @@ function mimo_money_transfer($atts,$content=null)
    if(isset($_POST['btnAmount'])){ 
 			$amount=$_POST['txtAmount'];
 			$note=$_POST['txtnote'];
-			// To get user account basic information
+			// Money transfer request
 			$transaction = $Mimo->transaction($amount,$note);
 	if(!$transaction) {
 		$Mimo->getError(); 
@@ -202,6 +204,144 @@ function mimo_money_transfer($atts,$content=null)
    return $html;			
 }
 add_shortcode('mimo-moneytransfer','mimo_money_transfer');
+
+/**
+ *  To refund the Money with the  authorized access token
+ *
+ * @param atts
+ * @param content
+ * @return Transaction information
+ */
+//Shortcode for Transaction
+function mimo_refund($atts,$content=null)
+{
+	require_once "lib/MimoRestClient.php";
+	require_once "lib/keys.php";
+
+	// Instantiate a new Mimo REST Client
+	$Mimo = new MimoRestClient($apiKey, $apiSecret, $oauth_uri);
+	if(!isset($_GET['code']) && !isset($_GET['error'])) {
+		//To fetch authurl and code
+		$mi_oauth_url_rf = get_option('mi_oauth_url_rf');		
+		$authUrl = $Mimo->getAuthUrl($mi_oauth_url_rf);
+		echo "<a href='$authUrl' class='auth_btn'>Get Oauth</a>";
+	}
+	if(isset($_GET['error'])) {
+		echo "There was an error. Mimo said: {$_GET['error_description']}";
+	}
+	else if(isset($_GET['code'])) {
+		$code = $_GET['code'];
+		//Mimo token request
+		$token = $Mimo->requestToken($code);
+		if(!$token) { $Mimo->getError(); } // Check for errors
+		else {
+			//To set token into session
+			if(!isset($_SESSION))
+				$_SESSION['token'] = $token;
+		}
+		// html code for refund
+		$html='';
+		$html .='<form name="refund_form" method="post" action="" >
+    <h1>Refund</h1>
+    <div class="main_div">
+    	<div class="container_mt">
+    		<span class="ttl01"> Note :</span> <input name="txtnote" type="text" id="txtnote">
+        </div>
+       	<div class="container_mt">
+    		<span class="ttl01"> Amount : </span><input name="txtAmount" type="text" id="txtAmount">
+       </div>
+		<div class="container_mt">
+    		<span class="ttl01"> Transaction ID  : </span><input name="txtTxnId" type="text" id="txtTxnId">
+       </div>
+    <input type="submit" name="btnAmount" value="Refund" id="btnAmount">
+    	</div>
+    </form>';
+		if(isset($_POST['btnAmount'])){
+			$amount=$_POST['txtAmount'];
+			$note=$_POST['txtnote'];
+			$txnId=$_POST['txtTxnId'];
+			// requesting refund information
+			$transaction = $Mimo->refund($amount,$txnId,$note);
+			if(!$transaction) {
+				$Mimo->getError();
+			}else{
+				if(empty($transaction['Success'])){
+					$html .= $transaction['Message'];
+				}else{
+					$html .= $transaction['Success'];
+				}
+			}
+		}
+	}
+	return $html;
+}
+add_shortcode('mimo-refund','mimo_refund');
+
+/**
+ *  To cancel the Money with the  authorized access token
+ *
+ * @param atts
+ * @param content
+ * @return Transaction information
+ */
+//Shortcode for Transaction
+function mimo_void($atts,$content=null)
+{
+	require_once "lib/MimoRestClient.php";
+	require_once "lib/keys.php";
+
+	// Instantiate a new Mimo REST Client
+	$Mimo = new MimoRestClient($apiKey, $apiSecret, $oauth_uri);
+	if(!isset($_GET['code']) && !isset($_GET['error'])) {
+		//To fetch authurl and code
+		$mi_oauth_url_void = get_option('mi_oauth_url_void');
+		$authUrl = $Mimo->getAuthUrl($mi_oauth_url_void);
+		echo "<a href='$authUrl' class='auth_btn'>Get Oauth</a>";
+	}
+	if(isset($_GET['error'])) {
+		echo "There was an error. Mimo said: {$_GET['error_description']}";
+	}
+	else if(isset($_GET['code'])) {
+		$code = $_GET['code'];
+		//Mimo token request
+		$token = $Mimo->requestToken($code);
+		if(!$token) { $Mimo->getError(); } // Check for errors
+		else {
+			//To set token into session
+			if(!isset($_SESSION))
+				$_SESSION['token'] = $token;
+		}
+		// html code for refund
+		$html='';
+		$html .='<form name="refund_form" method="post" action="" >
+    <h1>Cancel Transaction</h1>
+    <div class="main_div">
+    	<div class="container_mt">
+    		<span class="ttl01"> Transaction ID  : </span><input name="txtTxnId" type="text" id="txtTxnId">
+       </div>
+    <input type="submit" name="btnVoid" value="Cancel Transaction" id="btnVoid">
+    	</div>
+    </form>';
+		if(isset($_POST['btnVoid'])){
+			$txnId=$_POST['txtTxnId'];
+			// requesting refund information
+			$cancel_transaction = $Mimo->void($txnId);
+			if(!$cancel_transaction) {
+				$Mimo->getError();
+			}else{
+				if(empty($cancel_transaction['Success'])){
+					$html .= $cancel_transaction['Message'];
+				}else{
+					$html .= $cancel_transaction['Success'];
+				}
+			}
+		}
+	}
+	return $html;
+}
+add_shortcode('mimo-void','mimo_void');
+
+
 // set admin pages for Mimo
 function mimo_payment_gateway_admin() {
 	include('mimo_payment_gateway_admin.php');
